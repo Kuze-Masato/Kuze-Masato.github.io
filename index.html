@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>个人主页 | Kuze-Masato</title>
+  <!-- 引入Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入Font Awesome图标 -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <!-- 自定义配置（颜色、字体） -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#3498db', // 主色调（蓝）
+            secondary: '#2ecc71', // 辅助色（绿）
+            dark: {
+              bg: '#0f172a',
+              card: '#1e293b',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .glass {
+        backdrop-filter: blur(10px);
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+      .pixel-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(8px, 1fr));
+        gap: 1px;
+      }
+      .pixel-cell {
+        aspect-ratio: 1/1;
+        transition: all 0.2s ease;
+      }
+      .music-progress {
+        height: 4px;
+        appearance: none;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 2px;
+      }
+      .music-progress::-webkit-slider-thumb {
+        appearance: none;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #3498db;
+        cursor: pointer;
+      }
+      .song-item {
+        transition: all 0.2s ease;
+      }
+      .song-item:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+      .song-item.active {
+        background-color: rgba(52, 152, 219, 0.2);
+        color: #3498db;
+      }
+      .song-list-container {
+        transition: max-height 0.3s ease-out;
+        overflow: hidden;
+      }
+      /* 从下到上淡滑动画基础样式 */
+      .slide-up {
+        opacity: 0;
+        transform: translateY(30px); /* 初始向下偏移30px */
+        transition: opacity 0.6s ease, transform 0.6s ease;
+      }
+      .slide-up.active {
+        opacity: 1;
+        transform: translateY(0); /* 动画结束回到原位置 */
+      }
+    }
+  </style>
+  <style>
+    /* 背景固定：不随滚动变化 */
+    body {
+      background-attachment: fixed;
+      padding-top: 72px; /* 为顶部导航栏预留空间 */
+    }
+    /* 音乐播放器样式 - 新增滑入动画 */
+    .music-card {
+      transition: transform 0.4s ease, opacity 0.4s ease;
+      max-height: 80vh;
+      overflow-y: auto;
+      /* 初始状态：右侧隐藏 */
+      transform: translateX(100%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .music-card.show {
+      /* 显示状态：滑入视口 */
+      transform: translateX(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    /* 自定义滚动条 */
+    .music-card::-webkit-scrollbar {
+      width: 4px;
+    }
+    .music-card::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .music-card::-webkit-scrollbar-thumb {
+      background: rgba(52, 152, 219, 0.5);
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body class="bg-cover bg-center min-h-screen" style="background-image: url('images/3.jpg');">
+  <!-- 磨砂玻璃背景层 -->
+   <div class="fixed inset-0 glass z-0"></div>
+
+  <!-- 顶部导航栏 -->
+  <nav class="fixed top-0 left-0 right-0 z-50 bg-dark-card/90 backdrop-blur-lg h-16 px-4 md:px-8 flex items-center justify-between">
+    <!-- 左侧Logo -->
+    <div class="flex items-center gap-2">
+      <div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/50">
+        <img src="images/4.jpg" alt="Logo" class="w-full h-full object-cover">
+      </div>
+      <span class="text-white font-semibold text-lg">Kuze-Masato</span>
+    </div>
+
+    <!-- 中间导航链接（仅桌面显示） -->
+    <div class="hidden md:flex items-center gap-6">
+      <a href="#" class="text-white hover:text-primary transition-colors flex items-center gap-1">
+        <i class="fa fa-home"></i>
+        <span>首页</span>
+      </a>
+      <a href="#" class="text-gray-300 hover:text-primary transition-colors flex items-center gap-1">
+        <i class="fa fa-pencil"></i>
+        <span>博客</span>
+      </a>
+      <a href="#" class="text-gray-300 hover:text-primary transition-colors flex items-center gap-1">
+        <i class="fa fa-cloud"></i>
+        <span>云盘</span>
+      </a>
+      <a href="#" class="text-gray-300 hover:text-primary transition-colors flex items-center gap-1">
+        <i class="fa fa-flask"></i>
+        <span>实验室</span>
+      </a>
+    </div>
+
+    <!-- 右侧区域：包含音乐按钮和移动端菜单按钮 -->
+    <div class="flex items-center gap-4">
+      <!-- 音乐控制按钮 -->
+      <button id="musicToggle" class="w-10 h-10 rounded-full bg-dark-card flex items-center justify-center text-gray-300 hover:bg-primary hover:text-white transition-colors">
+        <i class="fa fa-music"></i>
+      </button>
+      
+      <!-- 移动端菜单按钮（仅移动端显示） -->
+      <button class="md:hidden w-10 h-10 rounded-full bg-dark-card flex items-center justify-center text-gray-300 hover:bg-primary hover:text-white transition-colors">
+        <i class="fa fa-bars"></i>
+      </button>
+    </div>
+  </nav>
+
+  <!-- 音乐播放卡片 - 右侧滑入动画 -->
+  <div id="musicCard" class="music-card fixed top-20 right-4 md:right-8 z-40 w-72 bg-dark-card/90 backdrop-blur-lg rounded-lg p-4 shadow-xl">
+    <!-- 专辑封面 -->
+    <div class="relative rounded-md overflow-hidden mb-4">
+      <img id="albumCover" src="https://p1.music.126.net/NobrXWT0jAdj_ss902vUpg==/18720284976164935.jpg?param=130y130" alt="专辑封面" class="w-full aspect-square object-cover">
+      <div class="absolute inset-0 bg-gradient-to-t from-dark-bg/70 to-transparent"></div>
+    </div>
+    
+    <!-- 歌曲信息 -->
+    <h3 id="songTitle" class="text-white font-semibold truncate">加载中...</h3>
+    <p id="songArtist" class="text-gray-400 text-sm mb-3">未知艺术家</p>
+    
+    <!-- 进度条 -->
+    <div class="mb-2">
+      <input type="range" id="progressBar" class="music-progress w-full" min="0" max="100" value="0">
+    </div>
+    <div class="flex justify-between text-xs text-gray-500 mb-4">
+      <span id="currentTime">0:00</span>
+      <span id="totalTime">0:00</span>
+    </div>
+    
+<!-- 控制按钮（三等分布局） -->
+<div class="flex items-center justify-center w-full mb-4">
+  <!-- 上一曲：占 1/3 宽度，内部居中 -->
+  <button id="prevSong" class="flex-1 flex items-center justify-center text-gray-400 hover:text-white transition-colors py-2">
+    <i class="fa fa-step-backward text-lg"></i>
+  </button>
+  
+  <!-- 播放/暂停：占 1/3 宽度，内部居中（保持原有大小和样式） -->
+  <button id="playPauseBtn" class="flex-1 flex items-center justify-center py-2">
+    <div class="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white hover:bg-primary/80 transition-colors">
+      <i class="fa fa-play"></i>
+    </div>
+  </button>
+  
+  <!-- 下一曲：占 1/3 宽度，内部居中 -->
+  <button id="nextSong" class="flex-1 flex items-center justify-center text-gray-400 hover:text-white transition-colors py-2">
+    <i class="fa fa-step-forward text-lg"></i>
+  </button>
+</div>
+
+<!-- 音量控制（保持不变） -->
+<div class="flex items-center gap-2 mb-6">
+  <i id="volumeIcon" class="fa fa-volume-up text-gray-400"></i>
+  <input type="range" id="volumeBar" class="music-progress flex-1" min="0" max="100" value="70">
+</div>
+
+<!-- 歌曲列表标题和控制按钮（保持不变） -->
+<div class="flex items-center justify-between mb-2">
+  <h4 class="text-white text-sm font-medium">歌曲列表</h4>
+  <div class="flex items-center gap-2">
+    <span class="text-gray-400 text-xs" id="songCount"></span>
+    <button id="toggleSongList" class="text-gray-400 hover:text-primary transition-colors">
+      <i class="fa fa-chevron-down" id="listToggleIcon"></i>
+    </button>
+  </div>
+</div>
+    
+    <!-- 歌曲列表容器（可折叠） -->
+    <div id="songListContainer" class="song-list-container mb-2" style="max-height: 500px;">
+      <div id="songList" class="space-y-1">
+        <!-- 歌曲列表项将通过JS动态生成 -->
+      </div>
+    </div>
+
+    <!-- 音频元素（隐藏） -->
+    <audio id="audioPlayer" hidden preload="metadata"> <!-- preload="metadata" 优先加载元数据 -->
+      <source type="audio/mpeg">
+      您的浏览器不支持音频播放
+    </audio>
+  </div>
+
+
+<!-- 左边距20% + 右边距30% + 内容宽度50% -->
+<div class="container px-4 py-8 relative z-10
+  md:ml-[15%] md:mr-[40%] md:w-[60%]  
+  sm:ml-0 sm:mr-0 sm:w-full sm:mx-auto"> <!-- 小屏：居中全屏 -->
+
+<!-- 外层大网格：包裹头部和主体所有内容，4列布局 -->
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-12">
+  <!-- 左列：头像 + 时间线卡片（占1列，跨2行）- 加滑入动画 -->
+  <div class="lg:col-span-1 lg:row-span-2 space-y-6 slide-up" data-delay="0">
+    <!-- 头像 - 加滑入动画 -->
+    <div class="relative w-full slide-up" data-delay="0.1">
+      <img src="images/4.jpg" alt="个人头像" class="w-full h-auto rounded-full object-cover border-4 border-primary/30">
+    </div>
+
+    <!-- 地理位置 & 标签 -->
+    <div class="bg-dark-card/80 rounded-lg p-4 slide-up" data-delay="0.2">
+      <div class="flex items-center gap-2 mb-3">
+        <i class="fa fa-map-marker text-primary"></i>
+        <span class="text-white">China</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <i class="fa fa-university text-primary"></i>
+        <span class="text-white">Sias</span>
+      </div>
+    </div>
+
+    <!-- 兴趣标签 -->
+    <div class="bg-dark-card/80 rounded-lg p-4 slide-up" data-delay="0.3">
+      <div class="flex flex-wrap gap-2">
+        <span class="px-3 py-1 bg-gray-700/50 text-gray-300 rounded text-sm">minecraft</span>
+        <span class="px-3 py-1 bg-gray-700/50 text-gray-300 rounded text-sm">linux</span>
+        <span class="px-3 py-1 bg-gray-700/50 text-gray-300 rounded text-sm">前端</span>
+      </div>
+    </div>
+
+    <!-- 时间线 -->
+    <div class="bg-dark-card/80 rounded-lg p-4 slide-up" data-delay="0.4">
+      <h3 class="text-white text-lg font-semibold mb-4">时间线</h3>
+      <div class="relative pl-4">
+        <div class="absolute left-0 top-0 bottom-0 w-0.5 bg-primary/30"></div>
+        <div class="mb-6 relative">
+          <div class="absolute left-[-6px] top-1 w-4 h-4 bg-primary rounded-full"></div>
+          <span class="text-gray-400 text-sm">1</span>
+          <p class="text-white mt-1">1</p>
+        </div>
+        <div class="mb-6 relative">
+          <div class="absolute left-[-6px] top-1 w-4 h-4 bg-primary rounded-full"></div>
+          <span class="text-gray-400 text-sm">1</span>
+          <p class="text-white mt-1">1</p>
+        </div>
+        <div class="mb-6 relative">
+          <div class="absolute left-[-6px] top-1 w-4 h-4 bg-primary rounded-full"></div>
+          <span class="text-gray-400 text-sm">1</span>
+          <p class="text-white mt-1">1</p>
+        </div>
+        <div class="relative">
+          <div class="absolute left-[-6px] top-1 w-4 h-4 bg-primary rounded-full"></div>
+          <span class="text-gray-400 text-sm">1</span>
+          <p class="text-white mt-1">1</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右列第1行：个人介绍文字（占3列）- 加滑入动画 -->
+  <div class="lg:col-span-3 flex flex-col justify-center mt-8 slide-up" data-delay="0.5">
+    <h1 class="text-[clamp(2rem,5vw,3rem)] font-bold text-white">Hello I'm <span class="text-primary">Kuze-Masato</span></h1>
+    <p class="text-xl text-gray-200 mt-2"> </p>
+    <p class="text-gray-300 mt-3 leading-relaxed">
+  
+    </p>
+    
+<!-- 方法2.1：空div间隔（仅控制距离） -->
+<div class="h-20"></div> <!-- h-10=高度10px，即间距10px -->
+<!-- 方法2.2：带样式的分隔线（距离+视觉分割） -->
+<div class="mt-8 my-6"> <!-- my-6=上下各24px间距 -->
+  <hr class="border-gray-700/50"> <!-- 浅灰色细分隔线 -->
+</div>
+
+    <!-- 社交/功能按钮 -->
+    <div class="flex gap-3 mt-1 mb-4">
+      <button class="w-10 h-10 rounded-full bg-dark-card flex items-center justify-center text-gray-300 hover:bg-primary hover:text-white transition-colors">
+        <i class="fa fa-refresh"></i>
+      </button>
+      <button class="w-10 h-10 rounded-full bg-dark-card flex items-center justify-center text-gray-300 hover:bg-primary hover:text-white transition-colors">
+        <i class="fa fa-envelope"></i>
+      </button>
+      <button class="w-10 h-10 rounded-full bg-dark-card flex items-center justify-center text-gray-300 hover:bg-primary hover:text-white transition-colors">
+        <i class="fa fa-github"></i>
+      </button>
+    </div>
+    <!-- 方法2.2：带样式的分隔线（距离+视觉分割） -->
+<div class="mt-2 my-2"> <!-- my-6=上下各24px间距 -->
+  <hr class="border-gray-700/50"> <!-- 浅灰色细分隔线 -->
+</div>
+
+  <!-- 右列第2行：像素交互 + 站点入口（占3列）- 加滑入动画 -->
+  <div class="lg:col-span-3 space-y-6 mt-6 slide-up" data-delay="0.6">
+    <!-- 自动贪吃蛇（固定5格长，简化代码） -->
+    <div class="bg-dark-card/80 rounded-lg p-4 slide-up" data-delay="0.7">
+      <canvas id="snakeCanvas" width="600" height="100" class="bg-dark-bg rounded"></canvas>
+    </div>
+
+    <!-- 站点入口卡片 - 加滑入动画 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="bg-dark-card/80 rounded-lg p-4 flex flex-col items-center text-center hover:bg-primary/20 transition-colors slide-up" data-delay="0.8">
+        <div class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center mb-3">
+          <i class="fa fa-pencil text-primary text-xl"></i>
+        </div>
+        <h4 class="text-white font-semibold mb-1">博客</h4>
+        <p class="text-gray-400 text-sm">记录摆烂日常</p>
+      </div>
+      <div class="bg-dark-card/80 rounded-lg p-4 flex flex-col items-center text-center hover:bg-primary/20 transition-colors slide-up" data-delay="0.9">
+        <div class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center mb-3">
+          <i class="fa fa-cloud text-yellow-400 text-xl"></i>
+        </div>
+        <h4 class="text-white font-semibold mb-1">云盘</h4>
+        <p class="text-gray-400 text-sm">存储收集文件</p>
+      </div>
+      <div class="bg-dark-card/80 rounded-lg p-4 flex flex-col items-center text-center hover:bg-primary/20 transition-colors slide-up" data-delay="1.0">
+        <div class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center mb-3">
+          <i class="fa fa-flask text-purple-400 text-xl"></i>
+        </div>
+        <h4 class="text-white font-semibold mb-1">实验室</h4>
+        <p class="text-gray-400 text-sm">收集有趣html作品</p>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+  <!-- 简化版贪吃蛇脚本 -->
+  <script>
+    const canvas = document.getElementById('snakeCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // 核心配置
+    const gridSize = 10;
+    const cols = Math.floor(canvas.width / gridSize);
+    const rows = Math.floor(canvas.height / gridSize);
+    const fixedLength = 5;
+    
+    // 游戏状态
+    let snake = [
+      { x: 6, y: 5 }, { x: 5, y: 5 }, { x: 4, y: 5 }, { x: 3, y: 5 }, { x: 2, y: 5 }
+    ];
+    let direction = 'right';
+    let food = generateFood();
+    let gameInterval;
+
+    // 生成食物（避蛇身）
+    function generateFood() {
+      let newFood;
+      do {
+        newFood = { x: Math.floor(Math.random() * cols), y: Math.floor(Math.random() * rows) };
+      } while (snake.some(seg => seg.x === newFood.x && seg.y === newFood.y));
+      return newFood;
+    }
+
+    // 自动寻路（朝向食物）
+    function autoFindDir() {
+      const head = snake[0];
+      if (head.x < food.x && direction !== 'left') direction = 'right';
+      else if (head.x > food.x && direction !== 'right') direction = 'left';
+      else if (head.y < food.y && direction !== 'up') direction = 'down';
+      else if (head.y > food.y && direction !== 'down') direction = 'up';
+    }
+
+    // 绘制元素
+    function draw() {
+      // 清屏
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // 画蛇
+      snake.forEach((seg, i) => {
+        ctx.fillStyle = i === 0 ? '#2ecc71' : '#27ae60';
+        ctx.fillRect(seg.x * gridSize, seg.y * gridSize, gridSize - 1, gridSize - 1);
+      });
+      
+      // 画食物
+      ctx.fillStyle = '#9b59b6';
+      ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 1, gridSize - 1);
+      
+      // 画网格
+      ctx.strokeStyle = '#1e293b';
+      for (let x = 0; x <= canvas.width; x += gridSize) ctx.strokeRect(x, 0, 0, canvas.height);
+      for (let y = 0; y <= canvas.height; y += gridSize) ctx.strokeRect(0, y, canvas.width, 0);
+    }
+
+    // 移动蛇（固定长度）
+    function move() {
+      autoFindDir();
+      const head = { ...snake[0] };
+      
+      // 方向更新
+      switch(direction) {
+        case 'up': head.y = (head.y - 1 + rows) % rows; break;
+        case 'down': head.y = (head.y + 1) % rows; break;
+        case 'left': head.x = (head.x - 1 + cols) % cols; break;
+        case 'right': head.x = (head.x + 1) % cols; break;
+      }
+      
+      snake.unshift(head);
+      if (snake.length > fixedLength) snake.pop();
+      
+      // 吃食物/撞自身处理
+      if (head.x === food.x && head.y === food.y) food = generateFood();
+      if (snake.slice(1).some(seg => seg.x === head.x && seg.y === head.y)) resetSnake();
+    }
+
+    // 重置蛇位置
+    function resetSnake() {
+      snake = [
+        { x: Math.floor(cols/2), y: Math.floor(rows/2) },
+        { x: Math.floor(cols/2)-1, y: Math.floor(rows/2) },
+        { x: Math.floor(cols/2)-2, y: Math.floor(rows/2) },
+        { x: Math.floor(cols/2)-3, y: Math.floor(rows/2) },
+        { x: Math.floor(cols/2)-4, y: Math.floor(rows/2) }
+      ];
+      direction = 'right';
+      food = generateFood();
+    }
+
+    // 启动游戏
+    function startGame() {
+      gameInterval = setInterval(() => { move(); draw(); }, 300);
+    }
+
+    // 初始化
+    startGame();
+    draw();
+  </script>
+
+  <!-- 滑入动画触发脚本 -->
+  <script>
+    // 页面加载完成后触发动画
+    window.addEventListener('DOMContentLoaded', () => {
+      // 获取所有带slide-up类的元素
+      const animateElements = document.querySelectorAll('.slide-up');
+      
+      // 按data-delay延迟依次激活动画
+      animateElements.forEach(el => {
+        const delay = el.getAttribute('data-delay') || 0;
+        setTimeout(() => {
+          el.classList.add('active');
+        }, delay * 1000); // delay单位：秒
+      });
+    });
+  </script>
+ 
+<!-- 透明度调节滑块 -->
+<div class="fixed bottom-20 right-6 z-50 bg-dark-card/100 rounded-full p-3 shadow-lg">
+  <label for="opacitySlider" class="text-white text-sm mr-2">透明度</label>
+  <input 
+    type="range" 
+    id="opacitySlider" 
+    min="0.1"  
+    max="1"    
+    step="0.1" 
+    value="0.8"
+    class="w-32 accent-primary" 
+  >
+  <span id="opacityValue" class="text-white text-sm ml-2">80%</span>
+</div>
+
+<!-- 音乐播放和透明度调节逻辑 -->
+<script>
+// 歌曲数据
+const songs = [
+  {
+    id: 1,
+    url: "music/Orangestar,IA - Alice in 冷凍庫.mp3",
+    cover: "https://y.qq.com/music/photo_new/T002R300x300M000003RflfT0iyxE4_1.jpg?max_age=2592000"},
+  {
+    id: 2,
+    url: "music/执迷不悟 - 小乐哥（王唯乐）.mp3",
+    cover: "https://y.qq.com/music/photo_new/T002R300x300M0000021brYM11q58W_4.jpg?max_age=2592000"},
+  {
+    id: 3,
+    url: "music/Kar Play - Shed a Light.mp3",
+    cover: "https://y.qq.com/music/photo_new/T002R300x300M000001YH8me3TUHD7_2.jpg?max_age=2592000"},
+  {
+    id: 4,
+    url: "music/乘风兔兔 - Constant Moderato.mp3",
+    cover: "https://y.qq.com/music/photo_new/T002R300x300M000000bt6b84Svt90_1.jpg?max_age=2592000"},
+   {
+    id: 5,
+    url: "music/Zeraphym - Lifeline.mp3",
+    cover: "https://imge.kugou.com/stdmusic/20200812/20200812100247186516.jpg"},
+   {
+    id: 6,
+    url: "music/久石譲 - Summer.mp3",
+    cover: "https://y.qq.com/music/photo_new/T002R300x300M000002I9dvU4FT2Sp_3.jpg?max_age=2592000"},
+];
+
+// DOM元素
+const musicToggle = document.getElementById('musicToggle');
+const musicCard = document.getElementById('musicCard');
+const playPauseBtn = document.getElementById('playPauseBtn');
+const progressBar = document.getElementById('progressBar');
+const currentTimeDisplay = document.getElementById('currentTime');
+const totalTimeDisplay = document.getElementById('totalTime');
+const albumCover = document.getElementById('albumCover');
+const songTitle = document.getElementById('songTitle');
+const songArtist = document.getElementById('songArtist');
+const songList = document.getElementById('songList');
+const songCount = document.getElementById('songCount');
+const volumeBar = document.getElementById('volumeBar');
+const volumeIcon = document.getElementById('volumeIcon');
+const prevSongBtn = document.getElementById('prevSong');
+const nextSongBtn = document.getElementById('nextSong');
+const audioPlayer = document.getElementById('audioPlayer');
+const toggleSongListBtn = document.getElementById('toggleSongList');
+const listToggleIcon = document.getElementById('listToggleIcon');
+const songListContainer = document.getElementById('songListContainer');
+
+// 播放状态
+let currentSongIndex = 0;
+let isPlaying = false;
+let isListExpanded = true;
+
+// 工具函数
+function getSongNameFromUrl(url) {
+  const fileName = url.split('/').pop();
+  const nameWithoutExt = fileName.replace(/\.(mp3|wav|flac|m4a)$/i, '');
+  return nameWithoutExt.replace(/_/g, ' ').replace(/,/g, ' & ');
+}
+
+function formatTime(seconds) {
+  if (isNaN(seconds)) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// 初始化歌曲列表
+function initSongList() {
+  songList.innerHTML = '';
+  songs.forEach((song, index) => {
+    const songName = getSongNameFromUrl(song.url);
+    const songItem = document.createElement('div');
+    songItem.className = `song-item rounded p-2 flex items-center justify-between text-sm cursor-pointer ${index === currentSongIndex ? 'active' : ''}`;
+    songItem.innerHTML = `
+      <div class="flex-1 min-w-0">
+        <div class="truncate">${songName}</div>
+        <div class="text-gray-400 text-xs truncate">-:--</div>
+      </div>
+    `;
+    songItem.addEventListener('click', () => {
+      if (currentSongIndex !== index) {
+        currentSongIndex = index;
+        loadSong();
+        playSong();
+      } else {
+        togglePlayPause();
+      }
+    });
+    songList.appendChild(songItem);
+  });
+  songCount.textContent = `${songs.length}首`;
+}
+
+// 加载歌曲
+function loadSong() {
+  const song = songs[currentSongIndex];
+  const songName = getSongNameFromUrl(song.url);
+  
+  songTitle.textContent = '加载中...';
+  songArtist.textContent = '';
+  totalTimeDisplay.textContent = '0:00';
+  progressBar.value = 0;
+  albumCover.src = song.cover;
+
+  audioPlayer.removeEventListener('loadedmetadata', handleMetadataLoaded);
+  audioPlayer.removeEventListener('error', handleAudioError);
+  audioPlayer.src = song.url;
+  audioPlayer.load();
+  audioPlayer.addEventListener('loadedmetadata', handleMetadataLoaded);
+  audioPlayer.addEventListener('error', handleAudioError);
+
+  document.querySelectorAll('.song-item').forEach((item, index) => {
+    item.classList.toggle('active', index === currentSongIndex);
+    if (index === currentSongIndex) item.querySelector('div.truncate').textContent = songName;
+  });
+}
+
+// 元数据加载完成
+function handleMetadataLoaded() {
+  const songName = getSongNameFromUrl(songs[currentSongIndex].url);
+  const realDuration = audioPlayer.duration;
+  
+  songTitle.textContent = songName;
+  totalTimeDisplay.textContent = formatTime(realDuration);
+  
+  const activeItem = document.querySelector('.song-item.active');
+  if (activeItem) activeItem.querySelector('.text-gray-400.text-xs:last-child').textContent = formatTime(realDuration);
+}
+
+// 加载失败处理
+function handleAudioError() {
+  songTitle.textContent = '加载失败';
+  songArtist.textContent = '音频无法播放';
+  totalTimeDisplay.textContent = '0:00';
+  alert('音频加载失败，请检查文件路径或网络连接！');
+}
+
+// 播放控制
+function playSong() {
+  audioPlayer.play();
+  isPlaying = true;
+  playPauseBtn.innerHTML = '<i class="fa fa-pause"></i>';
+}
+
+function pauseSong() {
+  audioPlayer.pause();
+  isPlaying = false;
+  playPauseBtn.innerHTML = '<i class="fa fa-play"></i>';
+}
+
+function togglePlayPause() {
+  isPlaying ? pauseSong() : playSong();
+}
+
+function prevSong() {
+  currentSongIndex = (currentSongIndex - 1 + songs.length) % songs.length;
+  loadSong();
+  playSong();
+}
+
+function nextSong() {
+  currentSongIndex = (currentSongIndex + 1) % songs.length;
+  loadSong();
+  playSong();
+}
+
+function updateProgress() {
+  const { currentTime, duration } = audioPlayer;
+  if (isNaN(duration)) return;
+  progressBar.value = (currentTime / duration) * 100;
+  currentTimeDisplay.textContent = formatTime(currentTime);
+  if (currentTime >= duration - 0.5) nextSong();
+}
+
+function setProgress() {
+  const duration = audioPlayer.duration;
+  if (isNaN(duration)) return;
+  audioPlayer.currentTime = (progressBar.value / 100) * duration;
+}
+
+function setVolume() {
+  const volume = volumeBar.value / 100;
+  audioPlayer.volume = volume;
+  volumeIcon.className = volume === 0 ? 'fa fa-volume-off text-gray-400' : volume < 0.5 ? 'fa fa-volume-down text-gray-400' : 'fa fa-volume-up text-gray-400';
+}
+
+function toggleSongList() {
+  isListExpanded = !isListExpanded;
+  songListContainer.style.maxHeight = isListExpanded ? '500px' : '0';
+  listToggleIcon.className = isListExpanded ? 'fa fa-chevron-down' : 'fa fa-chevron-up';
+}
+
+// 事件监听
+musicToggle.addEventListener('click', () => {
+  musicCard.classList.toggle('show');
+});
+
+playPauseBtn.addEventListener('click', togglePlayPause);
+prevSongBtn.addEventListener('click', prevSong);
+nextSongBtn.addEventListener('click', nextSong);
+progressBar.addEventListener('input', setProgress);
+volumeBar.addEventListener('input', setVolume);
+audioPlayer.addEventListener('timeupdate', updateProgress);
+toggleSongListBtn.addEventListener('click', toggleSongList);
+
+// 初始化
+initSongList();
+loadSong();
+setVolume();
+
+// 透明度调节
+const opacitySlider = document.getElementById('opacitySlider');
+const opacityValue = document.getElementById('opacityValue');
+const targetElement = document.querySelector('.glass'); 
+
+if (opacitySlider && opacityValue && targetElement) {
+  targetElement.style.opacity = opacitySlider.value;
+  opacitySlider.addEventListener('input', function() {
+    const currentOpacity = parseFloat(this.value);
+    targetElement.style.opacity = currentOpacity;
+    opacityValue.textContent = `${Math.round(currentOpacity * 100)}%`;
+  });
+}
+</script>
+
+<!-- 兼容性样式 -->
+<style type="text/tailwindcss">
+@layer utilities {
+  input[type="range"]::-moz-range-thumb {
+    background-color: theme('colors.primary');
+    border: none;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+  input[type="range"]::-moz-range-track {
+    background-color: rgba(255,255,255,0.2);
+    border-radius: 3px;
+    height: 6px;
+  }
+}
+</style>
+</body>
+</html>

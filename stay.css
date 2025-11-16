@@ -1,0 +1,13 @@
+.glass-card {
+  /* 1. 半透明背景色（控制磨砂玻璃的“底色”和透明度） */
+  background-color: rgba(255, 255, 255, 0.15); /* 白色半透明，可根据需求调整颜色和透明度 */
+  
+  /* 2. 磨砂玻璃核心：对背景进行模糊处理 */
+  backdrop-filter: blur(10px); /* 模糊半径，数值越大越模糊 */
+  
+  /* 3. 其他样式（可选）：如边框、圆角、阴影等 */
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
